@@ -21,7 +21,7 @@ function App() {
   useEffect(() => {
     fetchJwtToken();
   }, []);
-  
+
   const fetchJwtToken = async () => {
     try {
       const session = await Auth.currentSession();
@@ -31,8 +31,8 @@ function App() {
       console.log('Error fetching JWT token:', error);
     }
   };
-  
-  
+
+
   return (
     <Authenticator initialState='signIn'
     components={{
