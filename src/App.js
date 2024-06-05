@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { Amplify } from 'aws-amplify';
 import { awsExports } from './aws-exports';
 import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 import { Auth } from "aws-amplify";
+import { createEmbeddingContext } from 'amazon-quicksight-embedding-sdk';
 
 Amplify.configure({
   Auth: {
@@ -16,7 +17,62 @@ Amplify.configure({
 
 
 function App() {
+  const dashboardRef = useRef([]);
+  const [dashboardId, setDashboardId] = useState('b8957e77-0ede-45b9-9a7f-fa64b52edc66');
+  const [embeddedDashboard, setEmbeddedDashboard] = useState(null);
+  const [dashboardUrl, setDashboardUrl] = useState(null);
+  const [embeddingContext, setEmbeddingContext] = useState(null);
+
   const [jwtToken, setJwtToken] = useState('');
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      fetch("https://wps9gicub5.execute-api.us-east-1.amazonaws.com/embed/anonymous-embed"
+      ).then((response) => response.json()
+      ).then((response) => {
+        console.log(response)
+        setDashboardUrl(response.EmbedUrl)
+      })
+    }, 10);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const createContext = async () => {
+    const context = await createEmbeddingContext();
+    setEmbeddingContext(context);
+  }
+
+  useEffect(() => {
+    if (dashboardUrl) { createContext() }
+  }, [dashboardUrl])
+
+  useEffect(() => {
+    if (embeddingContext) { embed(); }
+  }, [embeddingContext])
+
+  const embed = async () => {
+
+    const options = {
+      url: dashboardUrl,
+      container: dashboardRef.current,
+      height: "500px",
+      width: "600px",
+    };
+
+    const newEmbeddedDashboard = await embeddingContext.embedDashboard(options);
+    setEmbeddedDashboard(newEmbeddedDashboard);
+  };
+
+  useEffect(() => {
+    if (embeddedDashboard) {
+      embeddedDashboard.navigateToDashboard(dashboardId, {})
+    }
+  }, [dashboardId])
+
+  const changeDashboard = async (e) => {
+    const dashboardId = e.target.value
+    setDashboardId(dashboardId)
+  }
 
   useEffect(() => {
     fetchJwtToken();
@@ -90,10 +146,22 @@ function App() {
     }}
     >
       {({ signOut, user}) => (
-        <div>Welcome {user.username}
+        <div>
+        <>
+          <header>
+            <h1>Nimblemind <i>inSight</i></h1>
+          </header>
+          <main>
+            <p>{user.username}, welcome to the Nimblemind inSight</p>
+            <p>Please pick a dashboard you want to render</p>
+            <select id='dashboard' value={dashboardId} onChange={changeDashboard}>
+              <option value="b8957e77-0ede-45b9-9a7f-fa64b52edc66">Health Data 1</option>
+            </select>
+          <div ref={dashboardRef} />
+          </main>
+        </>
+
         <button onClick={signOut}>Sign out</button>
-        <h4>Your JWT token:</h4>
-        {jwtToken}
         </div>
       )}
     </Authenticator>
